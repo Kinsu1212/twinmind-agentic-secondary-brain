@@ -15,19 +15,19 @@ interface Props {
 }
 
 const TYPE_COLORS: Record<string, string> = {
-  "Action Item":  "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
-  "Talking Point":"bg-violet-500/20 text-violet-400 border-violet-500/30",
-  Clarification:  "bg-blue-500/20 text-blue-400 border-blue-500/30",
-  "Fact-Check":   "bg-orange-500/20 text-orange-400 border-orange-500/30",
-  "Follow-up":    "bg-pink-500/20 text-pink-400 border-pink-500/30",
+  "Direct Answer":  "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
+  "Question to Ask":"bg-indigo-500/20 text-indigo-400 border-indigo-500/30",
+  "Talking Point":  "bg-violet-500/20 text-violet-400 border-violet-500/30",
+  Clarification:    "bg-blue-500/20 text-blue-400 border-blue-500/30",
+  "Fact-Check":     "bg-orange-500/20 text-orange-400 border-orange-500/30",
 };
 
 const TYPE_ICONS: Record<string, string> = {
-  "Action Item":  "✅",
-  "Talking Point":"🗣️",
-  Clarification:  "❓",
-  "Fact-Check":   "🔍",
-  "Follow-up":    "↩️",
+  "Direct Answer":  "💡",
+  "Question to Ask":"🙋",
+  "Talking Point":  "🗣️",
+  Clarification:    "❓",
+  "Fact-Check":     "🔍",
 };
 
 export function SuggestionsPanel({ onSuggestionClick, isRecording, flushChunk }: Props) {

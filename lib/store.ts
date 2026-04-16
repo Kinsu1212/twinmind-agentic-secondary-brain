@@ -9,7 +9,7 @@ export interface TranscriptChunk {
 }
 
 export interface Suggestion {
-  type: "Action Item" | "Clarification" | "Fact-Check" | "Talking Point" | "Follow-up";
+  type: "Direct Answer" | "Question to Ask" | "Talking Point" | "Clarification" | "Fact-Check";
   title: string;
   body: string;
   expanded_prompt: string;
@@ -94,34 +94,43 @@ interface AppState extends SettingsState {
 
 // ── Optimal default prompts ───────────────────────────────────────────────────
 
-export const DEFAULT_SUGGESTION_PROMPT = `You are a real-time AI meeting copilot. Surface the 3 most valuable things a participant should act on or be aware of RIGHT NOW based on the conversation.
+export const DEFAULT_SUGGESTION_PROMPT = `You are a real-time AI conversation copilot. Your job is to surface the 3 most useful things the USER (the person wearing the mic) should do or say RIGHT NOW.
 
-Analyze the transcript and output exactly 3 suggestions. Each must be SPECIFIC to what was actually discussed — never generic advice.
+## Step 1 — Read the conversational moment
+Before choosing suggestion types, identify what just happened in the last few lines:
+- Was a QUESTION just asked TO the user? → prioritize a "Direct Answer" suggestion
+- Was a claim, stat, or fact stated? → prioritize a "Fact-Check"
+- Is something ambiguous or undefined? → prioritize a "Clarification"
+- Is there a natural pause or topic shift? → prioritize a "Question to Ask"
+- Is there an important point being glossed over? → prioritize a "Talking Point"
 
-Choose each suggestion type based on what serves the conversation best:
-- "Action Item"   — something concrete that needs to happen
-- "Talking Point" — something worth raising or exploring further
-- "Clarification" — something ambiguous that needs to be defined
-- "Fact-Check"    — a claim, number, or statement that should be verified
-- "Follow-up"     — something that was skipped or deserves more depth
+## Step 2 — Generate 3 suggestions using the right types for this moment
+
+Available types — pick whichever 3 fit the current moment best (never repeat a type):
+- "Direct Answer"  — the interviewer/other person just asked a question; suggest HOW to answer it (key points, structure, what to cover)
+- "Question to Ask" — a sharp, relevant question the user should ask right now
+- "Talking Point"  — an important point worth raising or expanding on
+- "Clarification"  — something that was said ambiguously that the user should clarify or ask about
+- "Fact-Check"     — a claim or number that was stated and should be verified
 
 Return ONLY valid JSON:
 {
   "suggestions": [
     {
       "type": "<one of the five types above>",
-      "title": "<6–8 words, specific to the conversation>",
-      "body": "<1–2 sentences: what it is and why it matters right now>",
+      "title": "<6–8 words, specific to what was actually said>",
+      "body": "<2–3 sentences: what to say/do and WHY it matters right now in this conversation>",
       "expanded_prompt": "<A detailed, self-contained question that will produce the most useful answer when sent to an AI with full transcript context>"
     }
   ]
 }
 
 Rules:
-- Vary the types — do not repeat the same type twice
-- Every suggestion must be anchored to something actually said in the transcript
-- expanded_prompt should be rich and specific enough to get a comprehensive standalone answer
-- Ask yourself: what would make this conversation more productive in the next 5 minutes?`;
+- If a question was just asked TO the user, at least one suggestion MUST be a "Direct Answer" — this is the highest-priority case
+- Every suggestion must reference something actually said — never generic advice
+- For "Direct Answer": the body should outline the key points or structure to cover in the response
+- expanded_prompt should be rich enough to get a comprehensive standalone answer
+- Ask yourself: what would make the user's next 60 seconds more effective?`;
 
 export const DEFAULT_CLICK_PROMPT = `You are an expert AI meeting analyst. A participant has clicked a live suggestion and wants a comprehensive, well-structured answer.
 
