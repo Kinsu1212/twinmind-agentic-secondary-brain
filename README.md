@@ -105,6 +105,8 @@ Each prompt field has a ↺ reset button to restore the hardcoded optimal defaul
 
 ## Deployment (Vercel)
 
+**Live demo:** https://twinmind-agentic-secondary-brain.vercel.app
+
 ```bash
 git init && git add . && git commit -m "init"
 # Push to GitHub → import at vercel.com → Deploy
