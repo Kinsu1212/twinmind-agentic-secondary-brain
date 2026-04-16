@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAppStore, Suggestion } from "@/lib/store";
 import { generateSuggestions } from "@/lib/groq";
-import { Lightbulb, Loader2, RefreshCw, Sparkles } from "lucide-react";
+import { Lightbulb, Loader2, RefreshCw, Sparkles, Zap } from "lucide-react";
 
 interface Props {
   onSuggestionClick: (suggestion: Suggestion) => void;
@@ -15,19 +15,19 @@ interface Props {
 }
 
 const TYPE_COLORS: Record<string, string> = {
-  "Action Item": "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
-  Clarification: "bg-blue-500/20 text-blue-400 border-blue-500/30",
-  "Fact-Check": "bg-orange-500/20 text-orange-400 border-orange-500/30",
-  Insight: "bg-purple-500/20 text-purple-400 border-purple-500/30",
-  "Follow-up": "bg-pink-500/20 text-pink-400 border-pink-500/30",
+  "Action Item":  "bg-emerald-500/20 text-emerald-400 border-emerald-500/30",
+  "Talking Point":"bg-violet-500/20 text-violet-400 border-violet-500/30",
+  Clarification:  "bg-blue-500/20 text-blue-400 border-blue-500/30",
+  "Fact-Check":   "bg-orange-500/20 text-orange-400 border-orange-500/30",
+  "Follow-up":    "bg-pink-500/20 text-pink-400 border-pink-500/30",
 };
 
 const TYPE_ICONS: Record<string, string> = {
-  "Action Item": "✅",
-  Clarification: "❓",
-  "Fact-Check": "🔍",
-  Insight: "💡",
-  "Follow-up": "↩️",
+  "Action Item":  "✅",
+  "Talking Point":"🗣️",
+  Clarification:  "❓",
+  "Fact-Check":   "🔍",
+  "Follow-up":    "↩️",
 };
 
 export function SuggestionsPanel({ onSuggestionClick, isRecording, flushChunk }: Props) {
@@ -41,6 +41,7 @@ export function SuggestionsPanel({ onSuggestionClick, isRecording, flushChunk }:
     contextWindowSize,
     addSuggestionBatch,
     setIsGeneratingSuggestions,
+    setTargetChunkId,
   } = useAppStore();
 
   const formatTime = (iso: string) =>
@@ -49,23 +50,23 @@ export function SuggestionsPanel({ onSuggestionClick, isRecording, flushChunk }:
   const handleRefresh = useCallback(async () => {
     if (isGeneratingSuggestions || isProcessingChunk) return;
 
-    // If actively recording, flush the current audio chunk early.
-    // This triggers transcription → then suggestions automatically via the hook.
     if (isRecording) {
       flushChunk();
       return;
     }
 
-    // Not recording — re-generate suggestions from existing transcript directly.
     if (!groqApiKey || transcriptChunks.length === 0) return;
     setIsGeneratingSuggestions(true);
     try {
+      const suggestionStart = Date.now();
       const batch = await generateSuggestions(
         transcriptChunks,
         contextWindowSize,
         suggestionPrompt,
         groqApiKey
       );
+      batch.suggestionMs = Date.now() - suggestionStart;
+      batch.triggeredByChunkId = transcriptChunks[transcriptChunks.length - 1]?.id;
       addSuggestionBatch(batch);
     } catch (err) {
       console.error("Refresh suggestions error:", err);
@@ -73,16 +74,9 @@ export function SuggestionsPanel({ onSuggestionClick, isRecording, flushChunk }:
       setIsGeneratingSuggestions(false);
     }
   }, [
-    isRecording,
-    isGeneratingSuggestions,
-    isProcessingChunk,
-    flushChunk,
-    groqApiKey,
-    transcriptChunks,
-    contextWindowSize,
-    suggestionPrompt,
-    addSuggestionBatch,
-    setIsGeneratingSuggestions,
+    isRecording, isGeneratingSuggestions, isProcessingChunk, flushChunk,
+    groqApiKey, transcriptChunks, contextWindowSize, suggestionPrompt,
+    addSuggestionBatch, setIsGeneratingSuggestions,
   ]);
 
   return (
@@ -128,66 +122,89 @@ export function SuggestionsPanel({ onSuggestionClick, isRecording, flushChunk }:
             {suggestionBatches.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-48 text-center">
                 <Sparkles className="w-10 h-10 text-gray-600 mb-3" />
-                <p className="text-gray-500 text-sm">
-                  Suggestions appear after each transcript chunk
-                </p>
+                <p className="text-gray-500 text-sm">Suggestions appear after each transcript chunk</p>
                 <p className="text-gray-600 text-xs mt-1">
                   Or hit <span className="text-indigo-400">Reload Suggestions</span> to generate manually
                 </p>
               </div>
             ) : (
-              suggestionBatches.map((batch, batchIdx) => (
-                <div key={batch.id} className={batchIdx > 0 ? "opacity-50" : ""}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="h-px flex-1 bg-gray-700/50" />
-                    <span className="text-xs text-gray-500 font-mono">
-                      {formatTime(batch.timestamp)}
-                      {batchIdx === 0 && (
-                        <span className="ml-1 text-indigo-400/70">· latest</span>
-                      )}
-                    </span>
-                    <div className="h-px flex-1 bg-gray-700/50" />
-                  </div>
+              suggestionBatches.map((batch, batchIdx) => {
+                // Find the transcript chunk that triggered this batch
+                const sourceChunk = batch.triggeredByChunkId
+                  ? transcriptChunks.find((c) => c.id === batch.triggeredByChunkId)
+                  : null;
 
-                  <div className="space-y-2">
-                    {batch.suggestions.map((suggestion, idx) => (
-                      <button
-                        key={idx}
-                        onClick={() => onSuggestionClick(suggestion)}
-                        className="w-full text-left rounded-lg border border-gray-700/50 bg-gray-800/40 p-3 hover:bg-gray-700/50 hover:border-indigo-500/50 transition-all duration-150 group"
-                      >
-                        <div className="flex items-start gap-2 mb-1.5">
-                          <span className="text-sm leading-none mt-0.5">
-                            {TYPE_ICONS[suggestion.type] || "💬"}
+                return (
+                  <div key={batch.id} className={batchIdx > 0 ? "opacity-50" : ""}>
+                    {/* Batch divider with timestamp + latency + source link */}
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="h-px flex-1 bg-gray-700/50" />
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <span className="text-xs text-gray-500 font-mono">
+                          {formatTime(batch.timestamp)}
+                          {batchIdx === 0 && (
+                            <span className="ml-1 text-indigo-400/70">· latest</span>
+                          )}
+                        </span>
+                        {batch.suggestionMs !== undefined && (
+                          <span className="flex items-center gap-0.5 text-[10px] text-emerald-400/70">
+                            <Zap className="w-2.5 h-2.5" />
+                            {(batch.suggestionMs / 1000).toFixed(1)}s
                           </span>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <Badge
-                                variant="outline"
-                                className={`text-[10px] px-1.5 py-0 border ${
-                                  TYPE_COLORS[suggestion.type] || "text-gray-400 border-gray-600"
-                                }`}
-                              >
-                                {suggestion.type}
-                              </Badge>
+                        )}
+                        {sourceChunk && (
+                          <button
+                            onClick={() => setTargetChunkId(sourceChunk.id)}
+                            title="Jump to the transcript chunk that triggered these suggestions"
+                            className="text-[10px] text-indigo-400/60 hover:text-indigo-400 underline underline-offset-2"
+                          >
+                            from {formatTime(sourceChunk.timestamp)}
+                          </button>
+                        )}
+                      </div>
+                      <div className="h-px flex-1 bg-gray-700/50" />
+                    </div>
+
+                    <div className="space-y-2">
+                      {batch.suggestions.map((suggestion, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => onSuggestionClick(suggestion)}
+                          className="w-full text-left rounded-lg border border-gray-700/50 bg-gray-800/40 p-3 hover:bg-gray-700/50 hover:border-indigo-500/50 transition-all duration-150 group"
+                        >
+                          <div className="flex items-start gap-2 mb-1.5">
+                            <span className="text-sm leading-none mt-0.5">
+                              {TYPE_ICONS[suggestion.type] || "💬"}
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <Badge
+                                  variant="outline"
+                                  className={`text-[10px] px-1.5 py-0 border ${
+                                    TYPE_COLORS[suggestion.type] || "text-gray-400 border-gray-600"
+                                  }`}
+                                >
+                                  {suggestion.type}
+                                </Badge>
+                              </div>
+                              <p className="text-sm font-medium text-gray-200 group-hover:text-white leading-snug">
+                                {suggestion.title}
+                              </p>
                             </div>
-                            <p className="text-sm font-medium text-gray-200 group-hover:text-white leading-snug">
-                              {suggestion.title}
-                            </p>
                           </div>
-                        </div>
-                        <p className="text-xs text-gray-400 leading-relaxed pl-6 group-hover:text-gray-300">
-                          {suggestion.body}
-                        </p>
-                        <p className="text-xs text-indigo-400/60 mt-1.5 pl-6 group-hover:text-indigo-400 flex items-center gap-1">
-                          <Lightbulb className="w-3 h-3" />
-                          Click to explore in chat
-                        </p>
-                      </button>
-                    ))}
+                          <p className="text-xs text-gray-400 leading-relaxed pl-6 group-hover:text-gray-300">
+                            {suggestion.body}
+                          </p>
+                          <p className="text-xs text-indigo-400/60 mt-1.5 pl-6 group-hover:text-indigo-400 flex items-center gap-1">
+                            <Lightbulb className="w-3 h-3" />
+                            Click to explore in chat
+                          </p>
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </ScrollArea>

@@ -5,6 +5,7 @@ export interface TranscriptChunk {
   id: string;
   text: string;
   timestamp: string;
+  transcriptionMs?: number;
 }
 
 export interface Suggestion {
@@ -18,6 +19,8 @@ export interface SuggestionBatch {
   id: string;
   timestamp: string;
   suggestions: Suggestion[];
+  suggestionMs?: number;
+  triggeredByChunkId?: string;
 }
 
 export interface ChatMessage {
@@ -54,6 +57,9 @@ interface AppState extends SettingsState {
   chatMessages: ChatMessage[];
   isChatLoading: boolean;
 
+  // Cross-panel scroll target
+  targetChunkId: string | null;
+
   // Settings actions
   setGroqApiKey: (key: string) => void;
   setSuggestionPrompt: (prompt: string) => void;
@@ -81,6 +87,9 @@ interface AppState extends SettingsState {
   updateLastAssistantMessage: (content: string) => void;
   setIsChatLoading: (val: boolean) => void;
   clearChat: () => void;
+
+  // Scroll actions
+  setTargetChunkId: (id: string | null) => void;
 }
 
 // ── Optimal default prompts ───────────────────────────────────────────────────
@@ -152,6 +161,7 @@ export const useAppStore = create<AppState>()(
       isGeneratingSuggestions: false,
       chatMessages: [],
       isChatLoading: false,
+      targetChunkId: null,
 
       setGroqApiKey: (key) => set({ groqApiKey: key }),
       setSuggestionPrompt: (prompt) => set({ suggestionPrompt: prompt }),
@@ -186,6 +196,8 @@ export const useAppStore = create<AppState>()(
         }),
       setIsChatLoading: (val) => set({ isChatLoading: val }),
       clearChat: () => set({ chatMessages: [] }),
+
+      setTargetChunkId: (id) => set({ targetChunkId: id }),
     }),
     {
       name: "twinmind-settings",

@@ -14,8 +14,16 @@ export default function Home() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [pendingSuggestion, setPendingSuggestion] = useState<Suggestion | null>(null);
 
-  // Single instance of the hook — shared across all panels via props
-  const { isRecording, isPaused, startRecording, stopRecording, pauseRecording, resumeRecording, flushChunk } = useAudioCapture();
+  const {
+    isRecording,
+    isPaused,
+    audioLevelRef,
+    startRecording,
+    stopRecording,
+    pauseRecording,
+    resumeRecording,
+    flushChunk,
+  } = useAudioCapture();
 
   useEffect(() => {
     if (!groqApiKey) setSettingsOpen(true);
@@ -34,6 +42,7 @@ export default function Home() {
           <TranscriptPanel
             isRecording={isRecording}
             isPaused={isPaused}
+            audioLevelRef={audioLevelRef}
             startRecording={startRecording}
             stopRecording={stopRecording}
             pauseRecording={pauseRecording}

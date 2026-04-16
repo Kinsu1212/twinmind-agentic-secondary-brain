@@ -13,6 +13,12 @@ export function useAudioCapture() {
   const chunksRef = useRef<BlobPart[]>([]);
   const mimeTypeRef = useRef<string>("audio/webm");
 
+  // Audio level metering
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const animFrameRef = useRef<number>(0);
+  const audioLevelRef = useRef<number>(0);
+
   const {
     groqApiKey,
     suggestionPrompt,
@@ -31,7 +37,9 @@ export function useAudioCapture() {
     async (blob: Blob) => {
       if (blob.size < 1000) return;
       setIsProcessingChunk(true);
+
       try {
+        const transcribeStart = Date.now();
         const text = await transcribeAudio(blob, groqApiKey);
         if (!text.trim()) return;
 
@@ -39,6 +47,7 @@ export function useAudioCapture() {
           id: crypto.randomUUID(),
           text: text.trim(),
           timestamp: new Date().toISOString(),
+          transcriptionMs: Date.now() - transcribeStart,
         };
         addTranscriptChunk(chunk);
 
@@ -46,12 +55,15 @@ export function useAudioCapture() {
         if (allChunks.length > 0) {
           setIsGeneratingSuggestions(true);
           try {
+            const suggestionStart = Date.now();
             const batch = await generateSuggestions(
               allChunks,
               contextWindowSize,
               suggestionPrompt,
               groqApiKey
             );
+            batch.suggestionMs = Date.now() - suggestionStart;
+            batch.triggeredByChunkId = chunk.id;
             addSuggestionBatch(batch);
           } catch (err) {
             console.error("Suggestion generation error:", err);
@@ -75,6 +87,46 @@ export function useAudioCapture() {
       setIsGeneratingSuggestions,
     ]
   );
+
+  const startLevelMeter = useCallback((stream: MediaStream) => {
+    try {
+      const audioContext = new AudioContext();
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 256;
+      analyser.smoothingTimeConstant = 0.8;
+
+      const source = audioContext.createMediaStreamSource(stream);
+      source.connect(analyser);
+
+      audioContextRef.current = audioContext;
+      analyserRef.current = analyser;
+
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+      const tick = () => {
+        if (!analyserRef.current) return;
+        analyserRef.current.getByteTimeDomainData(dataArray);
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) {
+          const v = (dataArray[i] - 128) / 128;
+          sum += v * v;
+        }
+        audioLevelRef.current = Math.sqrt(sum / dataArray.length);
+        animFrameRef.current = requestAnimationFrame(tick);
+      };
+      tick();
+    } catch {
+      // AudioContext not supported — meter silently disabled
+    }
+  }, []);
+
+  const stopLevelMeter = useCallback(() => {
+    cancelAnimationFrame(animFrameRef.current);
+    audioLevelRef.current = 0;
+    analyserRef.current = null;
+    audioContextRef.current?.close().catch(() => {});
+    audioContextRef.current = null;
+  }, []);
 
   const startNewChunk = useCallback(() => {
     const recorder = mediaRecorderRef.current;
@@ -112,8 +164,9 @@ export function useAudioCapture() {
     recorder.start();
     setIsRecording(true);
     setIsPaused(false);
+    startLevelMeter(stream);
     intervalRef.current = setInterval(startNewChunk, CHUNK_INTERVAL_MS);
-  }, [groqApiKey, processAudioChunk, startNewChunk, setIsRecording, setIsPaused]);
+  }, [groqApiKey, processAudioChunk, startNewChunk, setIsRecording, setIsPaused, startLevelMeter]);
 
   const stopRecording = useCallback(() => {
     if (intervalRef.current) {
@@ -122,7 +175,6 @@ export function useAudioCapture() {
     }
     const recorder = mediaRecorderRef.current;
     if (recorder && recorder.state !== "inactive") {
-      // If paused, resume first so onstop fires with accumulated data
       if (recorder.state === "paused") recorder.resume();
       recorder.stop();
     }
@@ -130,47 +182,58 @@ export function useAudioCapture() {
       streamRef.current.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
     }
+    stopLevelMeter();
     setIsRecording(false);
     setIsPaused(false);
-  }, [setIsRecording, setIsPaused]);
+  }, [setIsRecording, setIsPaused, stopLevelMeter]);
 
   const pauseRecording = useCallback(() => {
     const recorder = mediaRecorderRef.current;
     if (!recorder || recorder.state !== "recording") return;
-
-    // Stop the auto-chunk interval while paused
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
-
     recorder.pause();
+    // Pause the level meter animation
+    cancelAnimationFrame(animFrameRef.current);
+    audioLevelRef.current = 0;
     setIsPaused(true);
   }, [setIsPaused]);
 
   const resumeRecording = useCallback(() => {
     const recorder = mediaRecorderRef.current;
     if (!recorder || recorder.state !== "paused") return;
-
     recorder.resume();
     setIsPaused(false);
 
-    // Restart the auto-chunk interval from this moment
+    // Resume level meter
+    if (analyserRef.current) {
+      const analyser = analyserRef.current;
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      const tick = () => {
+        analyser.getByteTimeDomainData(dataArray);
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) {
+          const v = (dataArray[i] - 128) / 128;
+          sum += v * v;
+        }
+        audioLevelRef.current = Math.sqrt(sum / dataArray.length);
+        animFrameRef.current = requestAnimationFrame(tick);
+      };
+      tick();
+    }
+
     intervalRef.current = setInterval(startNewChunk, CHUNK_INTERVAL_MS);
   }, [startNewChunk, setIsPaused]);
 
   const flushChunk = useCallback((): boolean => {
     const recorder = mediaRecorderRef.current;
     if (!recorder || recorder.state !== "recording") return false;
-
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-    }
-
+    if (intervalRef.current) clearInterval(intervalRef.current);
     recorder.stop();
     chunksRef.current = [];
     recorder.start();
-
     intervalRef.current = setInterval(startNewChunk, CHUNK_INTERVAL_MS);
     return true;
   }, [startNewChunk]);
@@ -178,6 +241,7 @@ export function useAudioCapture() {
   return {
     isRecording,
     isPaused,
+    audioLevelRef,
     startRecording,
     stopRecording,
     pauseRecording,

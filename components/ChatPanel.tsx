@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useAppStore, Suggestion } from "@/lib/store";
 import { streamChatResponse, buildChatContext } from "@/lib/groq";
-import { Loader2, MessageSquare, Send, Sparkles } from "lucide-react";
+import { Check, Copy, Loader2, MessageSquare, Send, Sparkles } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 
 interface Props {
@@ -30,7 +30,18 @@ export function ChatPanel({ pendingSuggestion, onSuggestionHandled }: Props) {
   } = useAppStore();
 
   const [input, setInput] = useState("");
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  const handleCopy = async (content: string, id: string) => {
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch {
+      // clipboard not available
+    }
+  };
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -179,19 +190,35 @@ export function ChatPanel({ pendingSuggestion, onSuggestionHandled }: Props) {
                       </span>
                     )}
                     {msg.role === "assistant" ? (
-                      <div className="prose prose-sm prose-invert max-w-none">
-                        <ReactMarkdown>{msg.content || "▌"}</ReactMarkdown>
-                      </div>
+                      <>
+                        <div className="prose prose-sm prose-invert max-w-none">
+                          <ReactMarkdown>{msg.content || "▌"}</ReactMarkdown>
+                        </div>
+                        {msg.content && (
+                          <div className="flex items-center justify-between mt-1.5">
+                            <p className="text-[10px] text-gray-500">{formatTime(msg.timestamp)}</p>
+                            <button
+                              onClick={() => handleCopy(msg.content, msg.id)}
+                              title="Copy response"
+                              className="text-gray-600 hover:text-gray-300 transition-colors"
+                            >
+                              {copiedId === msg.id ? (
+                                <Check className="w-3 h-3 text-emerald-400" />
+                              ) : (
+                                <Copy className="w-3 h-3" />
+                              )}
+                            </button>
+                          </div>
+                        )}
+                      </>
                     ) : (
                       <p className="leading-relaxed">{msg.content}</p>
                     )}
-                    <p
-                      className={`text-[10px] mt-1 ${
-                        msg.role === "user" ? "text-indigo-300" : "text-gray-500"
-                      }`}
-                    >
-                      {formatTime(msg.timestamp)}
-                    </p>
+                    {msg.role === "user" && (
+                      <p className="text-[10px] mt-1 text-indigo-300">
+                        {formatTime(msg.timestamp)}
+                      </p>
+                    )}
                   </div>
                 </div>
               ))

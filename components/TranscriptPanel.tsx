@@ -4,32 +4,87 @@ import { useEffect, useRef, useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { useAppStore } from "@/lib/store";
-import { Loader2, Mic, MicOff, Pause, Play } from "lucide-react";
+import { Loader2, Mic, MicOff, Pause, Play, Zap } from "lucide-react";
 
 interface Props {
   isRecording: boolean;
   isPaused: boolean;
+  audioLevelRef: React.RefObject<number>;
   startRecording: () => Promise<void>;
   stopRecording: () => void;
   pauseRecording: () => void;
   resumeRecording: () => void;
 }
 
+const BAR_COUNT = 5;
+
 export function TranscriptPanel({
   isRecording,
   isPaused,
+  audioLevelRef,
   startRecording,
   stopRecording,
   pauseRecording,
   resumeRecording,
 }: Props) {
-  const { transcriptChunks, isProcessingChunk, groqApiKey } = useAppStore();
+  const { transcriptChunks, isProcessingChunk, groqApiKey, targetChunkId, setTargetChunkId } =
+    useAppStore();
   const [error, setError] = useState<string | null>(null);
-  const bottomRef = useRef<HTMLDivElement>(null);
 
+  // Scroll refs
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const chunkRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+
+  // Audio level bar refs — direct DOM manipulation, no re-renders
+  const barRefs = useRef<(HTMLDivElement | null)[]>(Array(BAR_COUNT).fill(null));
+  const smoothed = useRef<number[]>(Array(BAR_COUNT).fill(0));
+  const animRef = useRef<number>(0);
+
+  // Auto-scroll to newest chunk
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [transcriptChunks]);
+
+  // Scroll to targeted chunk (from suggestion link click)
+  useEffect(() => {
+    if (!targetChunkId) return;
+    const el = chunkRefs.current.get(targetChunkId);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.classList.add("ring-2", "ring-indigo-400");
+      setTimeout(() => {
+        el.classList.remove("ring-2", "ring-indigo-400");
+        setTargetChunkId(null);
+      }, 2000);
+    }
+  }, [targetChunkId, setTargetChunkId]);
+
+  // Audio level meter animation (direct DOM, zero React re-renders)
+  useEffect(() => {
+    if (!isRecording || isPaused) {
+      cancelAnimationFrame(animRef.current);
+      barRefs.current.forEach((b) => {
+        if (b) b.style.height = "3px";
+      });
+      smoothed.current = Array(BAR_COUNT).fill(0);
+      return;
+    }
+
+    const tick = () => {
+      const level = audioLevelRef.current ?? 0;
+      barRefs.current.forEach((bar, i) => {
+        if (!bar) return;
+        const variance = 0.6 + Math.random() * 0.8;
+        const target = Math.min(1, level * 10 * variance);
+        smoothed.current[i] = smoothed.current[i] * 0.65 + target * 0.35;
+        bar.style.height = `${3 + smoothed.current[i] * 22}px`;
+      });
+      animRef.current = requestAnimationFrame(tick);
+    };
+
+    animRef.current = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(animRef.current);
+  }, [isRecording, isPaused, audioLevelRef]);
 
   const handleStart = async () => {
     setError(null);
@@ -41,9 +96,12 @@ export function TranscriptPanel({
   };
 
   const formatTime = (iso: string) =>
-    new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    new Date(iso).toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
 
-  // Determine status badge
   const statusBadge = !isRecording ? (
     <span className="flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-gray-700 text-gray-400">
       <MicOff className="w-3 h-3" />
@@ -79,10 +137,9 @@ export function TranscriptPanel({
         </div>
       </div>
 
-      {/* Controls */}
+      {/* Controls + audio meter */}
       <div className="mb-3 flex-shrink-0 space-y-2">
         {!isRecording ? (
-          // IDLE → single Start button
           <Button
             onClick={handleStart}
             disabled={!groqApiKey}
@@ -93,7 +150,6 @@ export function TranscriptPanel({
             Start Recording
           </Button>
         ) : isPaused ? (
-          // PAUSED → Resume (primary) + Stop (secondary)
           <div className="flex gap-2">
             <Button
               onClick={resumeRecording}
@@ -112,7 +168,6 @@ export function TranscriptPanel({
             </Button>
           </div>
         ) : (
-          // LIVE → Pause (primary) + Stop (secondary)
           <div className="flex gap-2">
             <Button
               onClick={pauseRecording}
@@ -132,11 +187,20 @@ export function TranscriptPanel({
           </div>
         )}
 
+        {/* Audio level meter */}
         {isRecording && !isPaused && (
-          <p className="text-xs text-gray-500 text-center">
-            Auto-chunks every 30s &mdash; hit <span className="text-indigo-400">Reload Suggestions</span> to flush early
-          </p>
+          <div className="flex items-end justify-center gap-1 h-7 py-1">
+            {Array.from({ length: BAR_COUNT }).map((_, i) => (
+              <div
+                key={i}
+                ref={(el) => { barRefs.current[i] = el; }}
+                className="w-1.5 rounded-full bg-indigo-400 transition-none"
+                style={{ height: "3px" }}
+              />
+            ))}
+          </div>
         )}
+
         {isRecording && isPaused && (
           <p className="text-xs text-yellow-500/60 text-center">
             Recording paused — audio is not being captured
@@ -148,7 +212,7 @@ export function TranscriptPanel({
         )}
       </div>
 
-      {/* Scrollable transcript */}
+      {/* Transcript list */}
       <div className="flex-1 min-h-0 overflow-hidden">
         <ScrollArea className="h-full pr-1">
           <div className="space-y-3 pb-2">
@@ -160,8 +224,25 @@ export function TranscriptPanel({
               </div>
             ) : (
               transcriptChunks.map((chunk) => (
-                <div key={chunk.id} className="rounded-lg bg-gray-800/60 border border-gray-700/50 p-3">
-                  <p className="text-xs text-indigo-400/70 mb-1 font-mono">{formatTime(chunk.timestamp)}</p>
+                <div
+                  key={chunk.id}
+                  ref={(el) => {
+                    if (el) chunkRefs.current.set(chunk.id, el);
+                    else chunkRefs.current.delete(chunk.id);
+                  }}
+                  className="rounded-lg bg-gray-800/60 border border-gray-700/50 p-3 transition-all duration-300"
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-xs text-indigo-400/70 font-mono">
+                      {formatTime(chunk.timestamp)}
+                    </p>
+                    {chunk.transcriptionMs !== undefined && (
+                      <span className="flex items-center gap-0.5 text-[10px] text-emerald-400/70">
+                        <Zap className="w-2.5 h-2.5" />
+                        {(chunk.transcriptionMs / 1000).toFixed(1)}s
+                      </span>
+                    )}
+                  </div>
                   <p className="text-sm text-gray-200 leading-relaxed">{chunk.text}</p>
                 </div>
               ))
