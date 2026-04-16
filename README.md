@@ -4,7 +4,13 @@ A real-time meeting copilot that transcribes audio, generates context-aware sugg
 
 ---
 
-## Setup
+## Deployment (Vercel)
+
+**Live demo:** https://twinmind-agentic-secondary-brain.vercel.app
+
+---
+
+## Local Setup
 
 1. Get a free Groq API key at `console.groq.com`
 2. `npm install && npm run dev`
@@ -100,9 +106,3 @@ All 5 settings are editable in the Settings modal (⚙ top-right):
 | Chat prompt | See store.ts | System prompt for direct chat input |
 
 Each prompt field has a ↺ reset button to restore the hardcoded optimal default.
-
----
-
-## Deployment (Vercel)
-
-**Live demo:** https://twinmind-agentic-secondary-brain.vercel.app
