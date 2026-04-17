@@ -20,6 +20,8 @@ const TYPE_COLORS: Record<string, string> = {
   "Talking Point":  "bg-violet-500/20 text-violet-400 border-violet-500/30",
   Clarification:    "bg-blue-500/20 text-blue-400 border-blue-500/30",
   "Fact-Check":     "bg-orange-500/20 text-orange-400 border-orange-500/30",
+  "Follow-up":      "bg-pink-500/20 text-pink-400 border-pink-500/30",
+  Insight:          "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
 };
 
 const TYPE_ICONS: Record<string, string> = {
@@ -28,6 +30,8 @@ const TYPE_ICONS: Record<string, string> = {
   "Talking Point":  "🗣️",
   Clarification:    "❓",
   "Fact-Check":     "🔍",
+  "Follow-up":      "↩️",
+  Insight:          "✨",
 };
 
 export function SuggestionsPanel({ onSuggestionClick, isRecording, flushChunk }: Props) {

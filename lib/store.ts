@@ -9,7 +9,7 @@ export interface TranscriptChunk {
 }
 
 export interface Suggestion {
-  type: "Direct Answer" | "Question to Ask" | "Talking Point" | "Clarification" | "Fact-Check";
+  type: "Direct Answer" | "Question to Ask" | "Talking Point" | "Clarification" | "Fact-Check" | "Follow-up" | "Insight";
   title: string;
   body: string;
   expanded_prompt: string;
@@ -112,6 +112,8 @@ Available types — pick whichever 3 fit the current moment best (never repeat a
 - "Talking Point"  — an important point worth raising or expanding on
 - "Clarification"  — something that was said ambiguously that the user should clarify or ask about
 - "Fact-Check"     — a claim or number that was stated and should be verified
+- "Follow-up"      — something mentioned briefly and dropped that deserves more depth; suggest circling back
+- "Insight"        — a smart, non-obvious observation the user could add that shows deeper thinking or expertise
 
 Return ONLY valid JSON:
 {
