@@ -107,7 +107,7 @@ Before choosing suggestion types, identify what just happened in the last few li
 ## Step 2 — Generate 3 suggestions using the right types for this moment
 
 Available types — pick whichever 3 fit the current moment best (never repeat a type):
-- "Direct Answer"  — the interviewer/other person just asked a question; suggest HOW to answer it (key points, structure, what to cover)
+- "Direct Answer"  — the interviewer/other person just asked a question; write the actual answer content as bullet points the user can say out loud, in first person ("I would...", "My approach is...") — NOT instructions about what to do
 - "Question to Ask" — a sharp, relevant question the user should ask right now
 - "Talking Point"  — an important point worth raising or expanding on
 - "Clarification"  — something that was said ambiguously that the user should clarify or ask about
@@ -128,7 +128,7 @@ Return ONLY valid JSON:
 Rules:
 - If a question was just asked TO the user, at least one suggestion MUST be a "Direct Answer" — this is the highest-priority case
 - Every suggestion must reference something actually said — never generic advice
-- For "Direct Answer": the body should outline the key points or structure to cover in the response
+- For "Direct Answer": the body must be the actual answer itself — written in first person as talking points the user can say directly ("I'd use a hash map here because...", "My approach would be..."). NEVER say "you should explain" or "Kinsu should say" — just write the answer.
 - expanded_prompt should be rich enough to get a comprehensive standalone answer
 - Ask yourself: what would make the user's next 60 seconds more effective?`;
 
