@@ -128,7 +128,7 @@ Return ONLY valid JSON:
 Rules:
 - If a question was just asked TO the user, at least one suggestion MUST be a "Direct Answer" — this is the highest-priority case
 - Every suggestion must reference something actually said — never generic advice
-- For "Direct Answer": the body must be the actual answer itself — written in first person as talking points the user can say directly ("I'd use a hash map here because...", "My approach would be..."). NEVER say "you should explain" or "Kinsu should say" — just write the answer.
+- For "Direct Answer": write the actual answer in first person as talking points ("I'd use...", "My approach would be..."). If the question is open-ended ("what options exist?", "what can you use?", "how would you approach?"), list ALL relevant options with a one-line reason for each — be comprehensive, not brief. If the question is specific, give a direct focused answer. NEVER say "you should" or reference the user by name — just be the voice in their head.
 - expanded_prompt should be rich enough to get a comprehensive standalone answer
 - Ask yourself: what would make the user's next 60 seconds more effective?`;
 
