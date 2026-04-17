@@ -119,7 +119,7 @@ Return ONLY valid JSON:
 {
   "suggestions": [
     {
-      "type": "<one of the five types above>",
+      "type": "<one of the seven types above>",
       "title": "<6–8 words, specific to what was actually said>",
       "body": "<2–3 sentences: what to say/do and WHY it matters right now in this conversation>",
       "expanded_prompt": "<A detailed, self-contained question that will produce the most useful answer when sent to an AI with full transcript context>"

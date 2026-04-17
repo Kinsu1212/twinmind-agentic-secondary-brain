@@ -55,7 +55,7 @@ Three separate prompts serve distinct purposes. Each is tunable in Settings with
 
 **Key decisions:**
 - Uses `response_format: { type: "json_object" }` to guarantee parseable output — no fragile regex extraction.
-- The model picks suggestion types dynamically from a menu of 5 (Action Item, Talking Point, Clarification, Fact-Check, Follow-up) rather than hardcoding one type per slot. This produces more natural, context-appropriate variety.
+- The model picks suggestion types dynamically from a menu of 7 (Direct Answer, Question to Ask, Talking Point, Clarification, Fact-Check, Follow-up, Insight) rather than hardcoding one type per slot. This produces more natural, context-appropriate variety.
 - The prompt explicitly forbids generic advice and requires every suggestion to be anchored to something actually said. Without this constraint, models default to surface-level platitudes.
 - `expanded_prompt` in the JSON is the key bridge to the chat panel. It is prompted to be "rich and specific enough to get a comprehensive standalone answer" — this is what fires when the user clicks a card.
 - `temperature: 0.7` — high enough for variety across refreshes, low enough for reliable JSON structure.
